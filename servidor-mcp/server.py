@@ -128,15 +128,15 @@ def _validate_interval(arguments: dict[str, Any]) -> str | None:
         start = _parse_time(str(arguments["inicio"]))
         end = _parse_time(str(arguments["fim"]))
     except (KeyError, TypeError, ValueError):
-        return "Periodo invalido: fim deve ser superior a inicio"
+        return "Intervalo invalido: fim deve ser posterior a inicio"
     if end <= start:
-        return "Periodo invalido: fim deve ser superior a inicio"
+        return "Intervalo invalido: fim deve ser posterior a inicio"
     local_start = start.astimezone(dt.timezone(dt.timedelta(hours=-3)))
     local_end = end.astimezone(dt.timezone(dt.timedelta(hours=-3)))
     if local_start.date() != local_end.date() or local_start.time() < dt.time(8) or local_end.time() > dt.time(20):
-        return "Fora da janela de uso: a politica permite apenas reservas entre 08:00 e 20:00"
+        return "Fora da janela de uso: a politica permite reservas entre 08:00 e 20:00"
     if end - start > dt.timedelta(hours=2):
-        return "Duracao acima do limite: a politica permite somenente o maximo de 2 horas"
+        return "Duracao acima do limite: a politica permite no maximo 2 horas"
     return None
 
 

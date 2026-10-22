@@ -21,11 +21,11 @@ JANELA_FIM = time(20, 0)
 DURACAO_MAXIMA = timedelta(hours=2)
 MAX_ALTERNATIVAS = 3
 
-ERRO_SALA = "Sala Não Localizada: {sala}"
+ERRO_SALA = "Sala inexistente: {sala}"
 ERRO_JANELA = "Fora da janela de uso: a politica permite reservas entre 08:00 e 20:00"
 ERRO_DURACAO = "Duracao acima do limite: a politica permite no maximo 2 horas"
-ERRO_INTERVALO = "Periodo invalido: fim deve ser posterior a inicio"
-ERRO_SEM_ALTERNATIVA = "Nenhuma Alternativas disponiveis no intervalo"
+ERRO_INTERVALO = "Intervalo invalido: fim deve ser posterior a inicio"
+ERRO_SEM_ALTERNATIVA = "Sem alternativas disponiveis no intervalo"
 
 
 class ErroDeNegocio(Exception):

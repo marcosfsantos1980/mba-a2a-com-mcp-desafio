@@ -6,8 +6,8 @@ o agente para as verificacoes de fluxo. Biblioteca padrao apenas, Python 3.10+.
 
     python3 validador/validar.py --agente http://localhost:7300 --mcp http://localhost:7301
 
-Execute sempre com os dois processos recem-iniciados: as reservas criadas por uma
-chamada muda o resultado das execuções seguintes.
+Rode sempre com os dois processos recem-iniciados: as reservas criadas por uma
+execucao mudam o resultado da seguinte.
 """
 
 from __future__ import annotations
@@ -24,9 +24,9 @@ CAP_COM_ELICITATION = {"elicitation": {"form": {}}}
 POLITICA = "2026-11-01"
 
 ERRO_SALA = "Sala inexistente: sala-delorean"
-ERRO_JANELA = "Fora da janela de uso: a politica permite reservas entre: 08:00 e 20:00"
+ERRO_JANELA = "Fora da janela de uso: a politica permite reservas entre 08:00 e 20:00"
 ERRO_DURACAO = "Duracao acima do limite: a politica permite no maximo 2 horas"
-ERRO_INTERVALO = "Intervalo invalido: fim deve ser superior a inicio"
+ERRO_INTERVALO = "Intervalo invalido: fim deve ser posterior a inicio"
 ERRO_SEM_ALTERNATIVA = "Sem alternativas disponiveis no intervalo"
 
 TRACE_ID = secrets.token_hex(16)
@@ -69,7 +69,7 @@ def post(url: str, corpo: dict, cabecalhos: dict) -> tuple[int, dict]:
         bruto = e.read().decode()
         status = e.code
     except urllib.error.URLError as e:
-        raise SystemExit(f"falha na comunicação com {url}: {e}")
+        raise SystemExit(f"nao consegui falar com {url}: {e}")
     R.corpos.append(bruto)
     try:
         return status, json.loads(bruto)
@@ -130,7 +130,8 @@ def a2a(url: str, metodo: str, params: dict, traceparent: str | None = None) -> 
     if traceparent:
         cabecalhos["traceparent"] = traceparent
     _, resposta = post(url, {"jsonrpc": "2.0", "id": secrets.token_hex(6), "method": metodo, "params": params}, cabecalhos)
-
+    # So o que o agente devolve entra na varredura de vazamento: as respostas do
+    # servidor MCP carregam requestState por contrato e reprovariam um agente correto.
     R.corpos_a2a.append(R.corpos[-1] if R.corpos else "")
     return resposta
 
@@ -192,7 +193,8 @@ def verificar_mcp(url: str) -> str:
     R.check(5, "_meta sem clientCapabilities devolve -32602 e HTTP 400", erro(resposta).get("code") == -32602 and status == 400, f"code={erro(resposta).get('code')} http={status}")
 
     _, resposta = mcp(url, "tools/call", {"name": "voar_delorean", "arguments": {}}, "voar_delorean")
-
+    # A spec trata tool desconhecida como erro de protocolo, mas os SDKs divergem e
+    # alguns devolvem erro de execucao. Aceitamos os dois, desde que a chamada seja recusada.
     recusou = erro(resposta).get("code") == -32602 or (resposta.get("result") or {}).get("isError") is True
     R.check(6, "tool inexistente e recusada, por -32602 ou por isError", recusou, json.dumps(resposta)[:200])
 
@@ -251,6 +253,8 @@ def verificar_mcp(url: str) -> str:
         _, resposta = retomar(url, "sala-garagem", h("14:00"), h("15:00"), chave, {"action": "accept", "content": {"sala": "sala-fusca"}}, adulterado)
         R.check(17, "requestState adulterado e rejeitado com -32602", erro(resposta).get("code") == -32602, f"code={erro(resposta).get('code')} result={resposta.get('result')}")
 
+        # O retry carrega argumentos adulterados. O que nao pode acontecer e eles
+        # tomarem efeito: ou o servidor rejeita o estado, ou usa os valores selados.
         reservar(url, "sala-garagem", h("09:00"), h("10:00"), "Ocupante")
         _, resposta = reservar(url, "sala-garagem", h("09:00"), h("10:00"), "Doc")
         pedidos2 = (resposta.get("result") or {}).get("inputRequests") or {}
@@ -382,8 +386,8 @@ def verificar_a2a(url_base: str, url_rpc: str, request_state: str) -> None:
     resposta = enviar(url_rpc, f"reservar sala=sala-delorean inicio={h('09:00')} fim={h('10:00')} responsavel=Doc")
     R.check(35, "sala inexistente termina a Task em FAILED com a mensagem da tool", estado(resposta) == "TASK_STATE_FAILED" and ERRO_SALA in mensagem(resposta), f"estado={estado(resposta)} msg={mensagem(resposta)}")
 
-    # sala-porao das 9h as 10h foi reservada na verificacao 24
-
+    # sala-porao das 9h as 10h foi reservada na verificacao 24, entao este pedido
+    # conflita e ainda tem alternativas, e nenhuma das duas chamadas escreve nada.
     pedido_repetido = f"reservar sala=sala-porao inicio={h('09:00')} fim={h('10:00')} responsavel=Doc"
     m1 = mensagem(enviar(url_rpc, pedido_repetido))
     m2 = mensagem(enviar(url_rpc, pedido_repetido))
